@@ -78,7 +78,7 @@ HRESULT Media::CreateCaptureDevice()
 		is selected
 		*/
 		//Get a source reader from the first available device
-		SetSourceReader(devices[0]);
+		hr = SetSourceReader(devices[0]);
 		
 		WCHAR *nameString = NULL;
 		// Get the human-friendly name of the device
@@ -89,6 +89,10 @@ HRESULT Media::CreateCaptureDevice()
 
 		if (SUCCEEDED(hr))
 		{
+			/// Note: See https://docs.microsoft.com/en-us/windows/win32/medfound/recommended-8-bit-yuv-formats-for-video-rendering
+			/// for a good description of the formats. 
+			/// On my computer the webcam support YUY2 which has a stride of 2 
+			
 			//allocate a byte buffer for the raw pixel data
 			bytesPerPixel = abs(stride) / width;
 			rawData = new BYTE[width*height * bytesPerPixel];
@@ -112,6 +116,9 @@ HRESULT Media::SetSourceReader(IMFActivate *device)
 
 	EnterCriticalSection(&criticalSection);
 
+	// Note: I have found the following call to fail with the error: 		
+	//       hr	0xc00d36b4 : The data specified for the media type is invalid, inconsistent, or not supported by this object.	HRESULT
+	// So some vidcap devices are not happy with this combination.
 	hr = device->ActivateObject(__uuidof(IMFMediaSource), (void**)&source);
 
 	//get symbolic link for the device
@@ -132,19 +139,28 @@ HRESULT Media::SetSourceReader(IMFActivate *device)
 	// Try to find a suitable output type.
 	if (SUCCEEDED(hr))
 	{
+		/// Update: This for loop was aimed at iterating across all supported (native) media types - but there were a couple of strange things which have been updated below
 		for (DWORD i = 0; ; i++)
 		{
 			hr = sourceReader->GetNativeMediaType((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,i,&mediaType);
+
+			/// Note: FAILED() here does not stop on S_FALSE - which is correct, as it should continue in this loop but might not sound logical
+			/// but if you loop through ALL supported media types the GetNativeMediaType will eventually return a code to indicate there are no more types available
 			if (FAILED(hr)) { break; }
 			
+			// Note: I moved this call to here as elsewhere in this code it uses stride without checking if it was zero
+			//Get the stride for this format so we can calculate the number of bytes per pixel
+			GetDefaultStride(mediaType, &stride);
+
 			hr = IsMediaTypeSupported(mediaType);
-			if (FAILED(hr)) { break; }
+			if (FAILED(hr)) { break; } /// Note: this is not detecting S_FALSE
 			//Get width and height
 			MFGetAttributeSize(mediaType, MF_MT_FRAME_SIZE, &width, &height);
 			if (mediaType) 
 			{ mediaType->Release(); mediaType = NULL; }
 
-			if (SUCCEEDED(hr))// Found an output type.
+			/// Note: this SUCCESS(hr) is WRONG - i.e. if 'hr' was S_FALSE (did not find media type) then this still goes ahead thinking it HAD found an output type
+			if (S_OK == hr)// Found an output type - by explicityly checking for S_OK
 				break;
 		}
 	}
@@ -177,9 +193,6 @@ HRESULT Media::IsMediaTypeSupported(IMFMediaType *pType)
 	BOOL bFound = FALSE;
 	GUID subtype = { 0 };
 
-	//Get the stride for this format so we can calculate the number of bytes per pixel
-	GetDefaultStride(pType, &stride);
-
 	if (FAILED(hr)) { return hr; }
 	hr = pType->GetGUID(MF_MT_SUBTYPE, &subtype);
 
@@ -187,10 +200,14 @@ HRESULT Media::IsMediaTypeSupported(IMFMediaType *pType)
 
 	if (FAILED(hr))	{return hr;	}
 
+	/// Update: The below is still lying - eg NV12 or RGB32 are not supported as there is no NV12 to BGRA function in main.cpp
 	if (subtype == MFVideoFormat_RGB32 || subtype == MFVideoFormat_RGB24 || subtype == MFVideoFormat_YUY2 || subtype == MFVideoFormat_NV12)
 		return S_OK;
 	else
-		return S_FALSE;
+		/// Update: Returning S_FALSE here is unclear as SUCCESS(S_FALSE) is actually true 
+		/// See https://docs.microsoft.com/en-us/windows/win32/learnwin32/error-handling-in-com
+		/// So either return S_FALSE and check for if(S_FALSE == hr) specifically, but not if you use SUCCESS() or FAIL() as was done in this wider code
+		return S_FALSE; 
 	
 	return hr;
 }

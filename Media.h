@@ -30,7 +30,7 @@ class Media : public IMFSourceReaderCallback //this class inhertis from IMFSourc
 public:
 	LONG stride;
 	int bytesPerPixel;
-	GUID videoFormat;
+	GUID videoFormat; // MFVideoFormat_RGB32 / MFVideoFormat_RGB24 / MFVideoFormat_YUY2 / MFVideoFormat_NV12
 	UINT height;
 	UINT width;
 	WCHAR deviceNameString[2048];
