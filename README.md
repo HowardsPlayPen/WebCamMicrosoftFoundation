@@ -2,7 +2,7 @@
 
 This code was downloaded from  https://elcharolin.wordpress.com/2017/08/28/webcam-capture-with-the-media-foundation-sdk/ and was a good introduction to accessing Webcams using Microsoft Foundation api calls but it contained a number of nasty issues that caught me out. 
 
-Note: there is a Google Drive [link](https://drive.google.com/file/d/0B4_E-yC5R_ScZlduenFBSGJFUVE/view?resourcekey=0-5S-VdOqfpCwAnsAT14DKXw) at the bottom of the page to download the source. I checked in my updates to GitHub to have easier tracking of my changes
+Note: there is a Google Drive [link](https://drive.google.com/file/d/0B4_E-yC5R_ScZlduenFBSGJFUVE/view?resourcekey=0-5S-VdOqfpCwAnsAT14DKXw) at the bottom of the above mentioned page to download the source. I checked in my updates to GitHub to have easier tracking of my changes
 
 
 So I thought I would update and annotate the code to show what I found.
